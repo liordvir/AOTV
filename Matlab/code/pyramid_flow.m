@@ -4,7 +4,7 @@ tic
 figure(3)
 for scale = levels %multi scale
     
-    fprintf('registration at sacle %d \n', scale)
+    fprintf('registration at scale %d \n', scale)
     
     source_ = imresize(source, size(source)/scale, 'bilinear');
     target_ = imresize(target, size(target)/scale, 'bilinear');
@@ -16,8 +16,11 @@ for scale = levels %multi scale
         u = imresize(u, 2, 'bilinear')*2;
         v = imresize(v, 2, 'bilinear')*2;
     end
-        
+    
     clear diff
+    if scale == 1
+      % continue
+    end
     for talyor_expension = 1 : talyor %multi linearisations
         fprintf(' mode is %s, talyor expension %d times;', mode, talyor_expension)
         

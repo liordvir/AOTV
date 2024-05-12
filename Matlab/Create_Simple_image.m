@@ -8,8 +8,10 @@ radius = 100;
 
 centerList = [
     [300,300];
-    [310,330];
-    [320,360]];
+    [310,320];
+    [320,340];
+    [330,360];
+    [340,380]];
 
 for i=1:length(centerList)
     centerRow = centerList(i,1);
