@@ -80,57 +80,98 @@ end
 %source: moving image
 %target: fixed image
 
-levels     = [4,2,1];
+levels     = [16,8,4,2,1];
 maxIter    = 2000;
 tolerance  = 1e-2;
 difference = 2;
-talyor     = 5;
-lambda     = 3;
+talyor     = 10;
+lambda     = 1000;
 mode       = 'sotv';
 padNum     = 8;
 
 numImages = 5;
-imRef = double(imread('Banana_edit_1.jpg'));
-imRef = rescale_intensity(imRef(:,:,1), [1, 99]);
-imRef = padarray(imRef,  [padNum,padNum], 0);
 
+% Init cell array to store data for display and comparisons
 maskRefCells = cell(numImages,1);
 maskCurCells = cell(numImages,1);
+maskCurWarpCells = cell(numImages,1);
 iouRefCells = cell(numImages,1);
+iouCells = cell(numImages,1);
 
-maskRefCells{1} = double(imread('Banana_mask_edit_1.jpg'));
-maskRefCells{1} = padarray(maskRefCells{1},  [padNum,padNum], 0);
+imRef = double(imread('Banana_edit_1.jpg'));
+imRef = padarray(imRef,  [padNum,padNum], 0);
+
+% Load reference's mask
+maskTemp = double(imread('Banana_mask_edit_1.jpg'));
+maskTemp(maskTemp > 0) = 1;
+maskTemp = padarray(maskTemp,  [padNum,padNum], 0);
+
+% Assign first values to cell arrays
+maskRefCells{1} = maskTemp; 
 maskCurCells{1} = maskRefCells{1};
+maskCurWarpCells{1} = maskRefCells{1};
 iouRefCells{1} = calcIOU(maskRefCells{1}, maskCurCells{1}); % Should be 1
+iouCells{1} = calcIOU(maskRefCells{1}, maskCurCells{1}); % Should be 1
+
+% Init structure element for morphological open operation
+se = strel('disk',30);
 
 for i=2:numImages
+
     % Load current image
     imCur = double(imread('Banana_edit_'+string(i)+'.jpg'));
-    imCur = rescale_intensity(imCur(:,:,1), [1, 99]);
     imCur = padarray(imCur,  [padNum,padNum], 0);
 
     % Load current image mask
     maskCur = double(imread('Banana_mask_edit_'+string(i)+'.jpg'));
+    maskCur(maskCur > 0) = 1;
     maskCur = padarray(maskCur,  [padNum,padNum], 0);
 
     % Calculate displacement field
     [u0, v0] = pyramid_flow(imRef, imCur, levels, talyor, maxIter, lambda, tolerance, difference, mode);
 
     % warp mask using displacement field and calculate IOU between masks
+    % maskRef is the first mask that gets transformed each step
     maskRefTemp = imwarp(maskRefCells{i-1}, cat(3, u0, v0),'Interp', 'linear'); 
     maskRefTemp(maskRefTemp <= 0) = 0;
+
+    % Perform morphological open operation to remove small flow anomalies 
+    maskRefTemp = imopen(maskRefTemp,se);
+
+    % maskCur is the ground truth mask (We warp this as well for comparison purposes) 
+    maskCurWarp = imwarp(maskCurCells{i-1}, cat(3, u0, v0),'Interp', 'linear'); 
+    maskCurWarp(maskCurWarp <= 0) = 0;
+    maskCurWarp = imopen(maskCurWarp,se);
+
+    % Insert to cell arrays for display purpose
     maskRefCells{i} = maskRefTemp;
     maskCurCells{i} = maskCur;
-    iouRefCells{i} = calcIOU(maskRefCells{i}, maskCurCells{i});
+    maskCurWarpCells{i} = maskCurWarp;
 
+    % Calculate IOUs
+    iouRefCells{i} = calcIOU(maskRefCells{i}, maskCurCells{i});
+    iouCells{i} = calcIOU(maskCurWarp, maskCur);
+
+    % Prepare for next time step
     imRef = imCur;
 end
 
+% Display IOU of the reference mask transformed through the entire image
+% sequence (Transform of the first mask only)
 figure
 for i=1:numImages
     subplot(1,5,i)
     imshowpair(maskRefCells{i}, maskCurCells{i})
-    title('IOU = ' + string(iouRefCells{i}));
+    title('IOU = ' + string(iouRefCells{i}), 'FontSize',20);
+end
+
+% Display IOU of the transformed mask between every two consecutive images
+% (Transform of the ground truth mask each step)
+figure
+for i=1:numImages
+    subplot(1,5,i)
+    imshowpair(maskCurWarpCells{i}, maskCurCells{i})
+    title('IOU = ' + string(iouCells{i}), 'FontSize',20);
 end
 
 %%
