@@ -284,6 +284,13 @@ createVidFromMask(imagePath, maskCurCells, vidNameGT);
 createVidFromMask(imagePath, maskRefCells, vidNameAlgo);
 
 %%
+%Create BB images
+bbPathAlgo = '/Users/liordvir/Technion/Courses/Variational Methods/Git/Project/AOTV/tennis_ball_frames/BB/Algo';
+bbPathGT = '/Users/liordvir/Technion/Courses/Variational Methods/Git/Project/AOTV/tennis_ball_frames/BB/GT';
+createMaskBB(maskRefCells, bbPathAlgo);
+createMaskBB(maskCurCells, bbPathGT);
+
+%%
 % Calculated Intersection Over Union between two binary masks
 function iou = calcIOU(mask_1, mask_2)
     intersection = mask_1 & mask_2;
@@ -336,6 +343,7 @@ function bbArray = getBB(maskArray)
     for i=1:numMasks
         % Load mask
         mask = maskArray{i};
+        mask = mask(9:end-8,9:end-8);
         % Sum over axi
         axisSumX = sum(mask,1);
         axisSumY = sum(mask,2);
@@ -346,5 +354,28 @@ function bbArray = getBB(maskArray)
         yEnd = find(axisSumY ~= 0, 1, 'last');
         % Create Bounding Box of top-left BB point, BB width and BB height
         bbArray{i} = [xStart, yStart, xEnd-xStart+1, yEnd-yStart+1];
+    end
+end
+
+% Takes a cell array of binary masks and Creates binary images of object's BB 
+function createMaskBB(maskArray, bbMaskPath)
+    numMasks = length(maskArray); 
+    for i=1:numMasks
+        % Load mask
+        mask = maskArray{i};
+        mask = mask(9:end-8,9:end-8);
+        % Sum over axi
+        axisSumX = sum(mask,1);
+        axisSumY = sum(mask,2);
+        % Find first and last indices of none-zero values for each axis
+        xStart = find(axisSumX ~= 0, 1);
+        xEnd = find(axisSumX ~= 0, 1, 'last');
+        yStart = find(axisSumY ~= 0, 1);
+        yEnd = find(axisSumY ~= 0, 1, 'last');
+        % Create Bounding Box image
+        bbImage = zeros(size(mask));
+        bbImage(yStart:yEnd, xStart:xEnd) = 1;
+
+        imwrite(logical(bbImage), fullfile(bbMaskPath, 'BB_'+string(i)+'.png'));
     end
 end
