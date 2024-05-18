@@ -4,7 +4,7 @@ import os
 import re
 
 # Each video has a frame per second which is number of frames in every second
-frame_per_second = 1
+frame_per_second = 5
 DURATION = 1
 
 # files_and_duration = [
@@ -66,8 +66,10 @@ for file, duration in files_and_duration:
         video_name = "./" + args.get("output_name") + ".mp4"
         writer = cv2.VideoWriter(video_name, fourcc, frame_per_second, (w, h))
 
-    # Repating the frame to fill the duration
-    for repeat in range(duration * frame_per_second):
-        writer.write(frame)
+    writer.write(frame)
+
+    # Repeating the frame to fill the duration
+    # for repeat in range(duration * frame_per_second):
+    #     writer.write(frame)
 
 writer.release()
