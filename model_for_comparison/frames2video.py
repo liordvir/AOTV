@@ -1,3 +1,4 @@
+import argparse
 import cv2
 import os
 import re
@@ -32,8 +33,16 @@ DURATION = 1
 #     ('../tennis_ball_frames/current_10.png', DURATION)
 # ]
 
+
 # Get all files from a given directory
-directory = '../tennis_ball_frames/'
+ap = argparse.ArgumentParser()
+ap.add_argument("-d", "--directory", default='../tennis_ball_frames/',
+                help="path to the wanted frames directory")
+ap.add_argument("-n", "--output_name", default='output',
+                help="name of the wanted output name")
+args = vars(ap.parse_args())
+
+directory = args.get("directory")
 all_files = os.listdir(directory)
 image_files = [file for file in all_files if (file.endswith(('.png', '.jpg', '.jpeg', '.gif')) and "edit" not in file)]
 # extracting frame number for correct sorting:
@@ -44,8 +53,7 @@ def extract_number(filename):
 # Sort the image files based on the numerical part of the filenames
 image_files.sort(key=extract_number)
 files_and_duration = [(os.path.join(directory, file), DURATION) for file in image_files]
-print(files_and_duration)
-
+# print(files_and_duration)
 
 w, h = None, None
 for file, duration in files_and_duration:
@@ -55,7 +63,8 @@ for file, duration in files_and_duration:
         # Setting up the video writer
         h, w, _ = frame.shape
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        writer = cv2.VideoWriter('outputRGB.mp4', fourcc, frame_per_second, (w, h))
+        video_name = "./" + args.get("output_name") + ".mp4"
+        writer = cv2.VideoWriter(video_name, fourcc, frame_per_second, (w, h))
 
     # Repating the frame to fill the duration
     for repeat in range(duration * frame_per_second):
