@@ -19,12 +19,12 @@ addpath ../tennis_ball_frames/Edited/Masks
 %source: moving image
 %target: fixed image
 
-levels     = [4,2,1];
+levels     = [16,8,4,2,1];
 maxIter    = 2000;
 tolerance  = 1e-2;
 difference = 2;
-talyor     = 5;
-lambda     = 0.1;
+talyor     = 10;
+lambda     = 10;
 mode       = 'sotv';
 padNum     = 8;
 
@@ -68,96 +68,10 @@ end
 figure
 for i=1:numImages
     subplot(1,5,i)
-    imshowpair(maskRefCells{i}, maskCurCells{i})
-    title('IOU = ' + string(iouRefCells{i}));
+    imshow(imread('simple_image_'+string(i)+'.tiff'),[])
+    title('Simple Frame ' + string(i), 'FontSize',20);
 end
 
-
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Banana Images
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%source: moving image
-%target: fixed image
-
-levels     = [16,8,4,2,1];
-maxIter    = 2000;
-tolerance  = 1e-2;
-difference = 2;
-talyor     = 10;
-lambda     = 1000;
-mode       = 'sotv';
-padNum     = 8;
-
-numImages = 5;
-
-% Init cell array to store data for display and comparisons
-maskRefCells = cell(numImages,1);
-maskCurCells = cell(numImages,1);
-maskCurWarpCells = cell(numImages,1);
-iouRefCells = cell(numImages,1);
-iouCells = cell(numImages,1);
-
-imRef = double(imread('Banana_edit_1.jpg'));
-imRef = padarray(imRef,  [padNum,padNum], 0);
-
-% Load reference's mask
-maskTemp = double(imread('Banana_mask_edit_1.jpg'));
-maskTemp(maskTemp > 0) = 1;
-maskTemp = padarray(maskTemp,  [padNum,padNum], 0);
-
-% Assign first values to cell arrays
-maskRefCells{1} = maskTemp; 
-maskCurCells{1} = maskRefCells{1};
-maskCurWarpCells{1} = maskRefCells{1};
-iouRefCells{1} = calcIOU(maskRefCells{1}, maskCurCells{1}); % Should be 1
-iouCells{1} = calcIOU(maskRefCells{1}, maskCurCells{1}); % Should be 1
-
-% Init structure element for morphological open operation
-se = strel('disk',30);
-
-for i=2:numImages
-
-    % Load current image
-    imCur = double(imread('Banana_edit_'+string(i)+'.jpg'));
-    imCur = padarray(imCur,  [padNum,padNum], 0);
-
-    % Load current image mask
-    maskCur = double(imread('Banana_mask_edit_'+string(i)+'.jpg'));
-    maskCur(maskCur > 0) = 1;
-    maskCur = padarray(maskCur,  [padNum,padNum], 0);
-
-    % Calculate displacement field
-    [u0, v0] = pyramid_flow(imRef, imCur, levels, talyor, maxIter, lambda, tolerance, difference, mode);
-
-    % warp mask using displacement field and calculate IOU between masks
-    % maskRef is the first mask that gets transformed each step
-    maskRefTemp = imwarp(maskRefCells{i-1}, cat(3, u0, v0),'Interp', 'linear'); 
-    maskRefTemp(maskRefTemp <= 0) = 0;
-
-    % Perform morphological open operation to remove small flow anomalies 
-    maskRefTemp = imopen(maskRefTemp,se);
-
-    % maskCur is the ground truth mask (We warp this as well for comparison purposes) 
-    maskCurWarp = imwarp(maskCurCells{i-1}, cat(3, u0, v0),'Interp', 'linear'); 
-    maskCurWarp(maskCurWarp <= 0) = 0;
-    maskCurWarp = imopen(maskCurWarp,se);
-
-    % Insert to cell arrays for display purpose
-    maskRefCells{i} = maskRefTemp;
-    maskCurCells{i} = maskCur;
-    maskCurWarpCells{i} = maskCurWarp;
-
-    % Calculate IOUs
-    iouRefCells{i} = calcIOU(maskRefCells{i}, maskCurCells{i});
-    iouCells{i} = calcIOU(maskCurWarp, maskCur);
-
-    % Prepare for next time step
-    imRef = imCur;
-end
-
-% Display IOU of the reference mask transformed through the entire image
-% sequence (Transform of the first mask only)
 figure
 for i=1:numImages
     subplot(1,5,i)
@@ -165,14 +79,6 @@ for i=1:numImages
     title('IOU = ' + string(iouRefCells{i}), 'FontSize',20);
 end
 
-% Display IOU of the transformed mask between every two consecutive images
-% (Transform of the ground truth mask each step)
-figure
-for i=1:numImages
-    subplot(1,5,i)
-    imshowpair(maskCurWarpCells{i}, maskCurCells{i})
-    title('IOU = ' + string(iouCells{i}), 'FontSize',20);
-end
 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -187,7 +93,7 @@ tolerance  = 1e-2;
 difference = 2;
 talyor     = 10;
 lambda     = 10;
-mode       = 'sotv';
+mode       = 'tv';
 padNum     = 8;
 
 numImages = 10;
@@ -284,13 +190,6 @@ createVidFromMask(imagePath, maskCurCells, vidNameGT);
 createVidFromMask(imagePath, maskRefCells, vidNameAlgo);
 
 %%
-%Create BB images
-bbPathAlgo = '/Users/liordvir/Technion/Courses/Variational Methods/Git/Project/AOTV/tennis_ball_frames/BB/Algo';
-bbPathGT = '/Users/liordvir/Technion/Courses/Variational Methods/Git/Project/AOTV/tennis_ball_frames/BB/GT';
-createMaskBB(maskRefCells, bbPathAlgo);
-createMaskBB(maskCurCells, bbPathGT);
-
-%%
 % Calculated Intersection Over Union between two binary masks
 function iou = calcIOU(mask_1, mask_2)
     intersection = mask_1 & mask_2;
@@ -333,49 +232,4 @@ function createVidFromMask(imagePath, maskArray, vidName)
     
     % Close video
     close(v);
-
-end
-
-% Takes a cell array of binary masks and outputs a cell array of bounding boxes  
-function bbArray = getBB(maskArray)
-    numMasks = length(maskArray); 
-    bbArray = cell(numMasks,1);
-    for i=1:numMasks
-        % Load mask
-        mask = maskArray{i};
-        mask = mask(9:end-8,9:end-8);
-        % Sum over axi
-        axisSumX = sum(mask,1);
-        axisSumY = sum(mask,2);
-        % Find first and last indices of none-zero values for each axis
-        xStart = find(axisSumX ~= 0, 1);
-        xEnd = find(axisSumX ~= 0, 1, 'last');
-        yStart = find(axisSumY ~= 0, 1);
-        yEnd = find(axisSumY ~= 0, 1, 'last');
-        % Create Bounding Box of top-left BB point, BB width and BB height
-        bbArray{i} = [xStart, yStart, xEnd-xStart+1, yEnd-yStart+1];
-    end
-end
-
-% Takes a cell array of binary masks and Creates binary images of object's BB 
-function createMaskBB(maskArray, bbMaskPath)
-    numMasks = length(maskArray); 
-    for i=1:numMasks
-        % Load mask
-        mask = maskArray{i};
-        mask = mask(9:end-8,9:end-8);
-        % Sum over axi
-        axisSumX = sum(mask,1);
-        axisSumY = sum(mask,2);
-        % Find first and last indices of none-zero values for each axis
-        xStart = find(axisSumX ~= 0, 1);
-        xEnd = find(axisSumX ~= 0, 1, 'last');
-        yStart = find(axisSumY ~= 0, 1);
-        yEnd = find(axisSumY ~= 0, 1, 'last');
-        % Create Bounding Box image
-        bbImage = zeros(size(mask));
-        bbImage(yStart:yEnd, xStart:xEnd) = 1;
-
-        imwrite(logical(bbImage), fullfile(bbMaskPath, 'BB_'+string(i)+'.png'));
-    end
 end
